@@ -1,6 +1,7 @@
 <?php
 /*
 Plugin Name: Debug Cron
+Plugin Group: Utilities
 Version: 0.1.1
 Description: This plugin checks for WordPress wp-cron issues.
 Author: Eric King
