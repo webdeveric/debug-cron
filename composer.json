@@ -1,0 +1,27 @@
+{
+  "name": "webdeveric/debug-cron",
+  "description": "Check for WordPress wp-cron issues",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0+",
+  "keywords": [ "WordPress", "cron", "debug", "wp_cron", "wp-cron.php" ],
+  "authors": [
+    {
+      "name": "Eric King",
+      "email": "eric@webdeveric.com",
+      "homepage": "http://webdeveric.com",
+      "role": "Developer"
+    }
+  ],
+  "support": {
+    "source": "https://github.com/webdeveric/debug-cron",
+    "issues": "https://github.com/webdeveric/debug-cron/issues"
+  },
+  "autoload": {
+    "psr-4": {
+      "webdeveric\\DebugCron\\": "src/"
+    }
+  },
+  "require": {
+    "composer/installers": "^1.0"
+  }
+}
