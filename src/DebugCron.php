@@ -14,17 +14,15 @@ class DebugCron
         add_action('admin_notices', array($this, 'adminNotices'));
         $this->messages = array();
         $this->check();
-        // $this->userConstants();
     }
 
-    public function userConstants()
-    {
-        $defined_constants = get_defined_constants(true);
-        $userConstants = $defined_constants['user'];
-        unset($defined_constants, $userConstants['DB_PASSWORD']);
-        $this->addMessage(sprintf('<xmp>%s</xmp>', var_export($userConstants, true)));
-    }
-
+    /**
+     * Add a message
+     *
+     * @param string $msg
+     * @param string $type
+     * @return void
+     */
     public function addMessage($msg, $type = 'updated')
     {
         if (! isset($this->messages[ $type ])) {
@@ -33,6 +31,12 @@ class DebugCron
         $this->messages[ $type ][] = $msg;
     }
 
+    /**
+     * Add an error message
+     *
+     * @param string $msg
+     * @return void
+     */
     public function addErrorMessage($msg)
     {
         if (is_wp_error($msg)) {
@@ -41,28 +45,49 @@ class DebugCron
         $this->addMessage($msg, 'error');
     }
 
-    public function displayMessages()
+    /**
+     * Get the messages formatted as HTML
+     *
+     * @return string
+     */
+    protected function getMessagesHTML()
     {
+        $html = '';
+
         foreach ($this->messages as $class_name => $messages) {
-            echo '<div class="', \esc_attr($class_name), '">';
+            $html .= '<div class="' . esc_attr($class_name) . '">';
+
             foreach ($messages as $message) {
-                echo '<p>', $message, '</p>';
+                $html .= '<p>' . $message . '</p>';
             }
-            echo '</div>';
+
+            $html .= '</div>';
         }
+
+        return $html;
     }
 
+    /**
+     * Display the messages in the admin
+     *
+     * @return void
+     */
     public function adminNotices()
     {
         if (empty($this->messages)) {
             return;
         }
 
-        $this->displayMessages();
+        echo $this->getMessagesHTML();
 
         $this->messages = array();
     }
 
+    /**
+     * Check for wp cron issues
+     *
+     * @return void
+     */
     public function check()
     {
         $host          = parse_url(site_url(), PHP_URL_HOST);
@@ -77,20 +102,37 @@ class DebugCron
             site_url('wp-cron.php')
         );
 
-        $response = wp_remote_post($cron_url);
+        $cron_args = array(
+            'timeout'   => 0.01,
+            'blocking'  => false,
+            'sslverify' => apply_filters('https_local_ssl_verify', false)
+        );
+
+        $response = wp_remote_post($cron_url, $cron_args);
 
         if (defined('DISABLE_WP_CRON') && constant('DISABLE_WP_CRON') == true) {
-            $this->addMessage('You are not using <code>wp_cron</code> since you have <code>DISABLE_WP_CRON</code> set to true. You should check the cron jobs on your server to make sure they are set correctly. ');
+            $this->addMessage('You are not using <code>wp_cron</code> since you have <code>DISABLE_WP_CRON</code> set to true. You should check the cron jobs on your server to make sure they are set correctly.');
         }
 
-        if (isset($response, $response['response'], $response['response']['code'])) {
-            if ($response['response']['code'] == 200) {
-                $this->addMessage(sprintf('Your server is able to reach <strong>%s</strong> without any problems.', $cron_url));
-            } else {
-                $this->addErrorMessage(sprintf('Your server has a problem reaching <strong>%s</strong>. Error Code: <strong>%d</strong>', $cron_url, $response['response']['code']));
+        if (is_wp_error($response)) {
+            $this->addErrorMessage(sprintf('Your server has a problem reaching <strong><a href="%1$s" target="_blank">%1$s</a></strong>.', $cron_url));
+
+            $codes    = $response->get_error_codes();
+            $messages = $response->get_error_messages();
+
+            foreach ($messages as $key => $msg) {
+                $this->addErrorMessage(sprintf('<strong>%s</strong>: %s', $codes[ $key ], $msg));
             }
         } else {
-            $this->addMessage(sprintf('Your server has a problem reaching <strong>%s</strong>. <xmp>%s</xmp>', $cron_url, print_r($response, true)));
+            if (isset($response, $response['response'], $response['response']['code'])) {
+                if ($response['response']['code'] == 200) {
+                    $this->addMessage(sprintf('Your server is able to reach <strong>%s</strong> without any problems.', $cron_url));
+                } else {
+                    $this->addErrorMessage(sprintf('Your server has a problem reaching <strong>%s</strong>. Error Code: <strong>%d</strong>', $cron_url, $response['response']['code']));
+                }
+            } else {
+                $this->addMessage(sprintf('Your server has a problem reaching <strong>%s</strong>. <xmp>%s</xmp>', $cron_url, print_r($response, true)));
+            }
         }
 
         switch (true) {
